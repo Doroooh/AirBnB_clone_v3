@@ -1,11 +1,19 @@
 #!/usr/bin/python3
-""" Test .get() and .count() methods
-"""
+""" Test .get() and .count() methods """
 from models import storage
 from models.state import State
 
-print("All objects: {}".format(storage.count()))
-print("State objects: {}".format(storage.count(State)))
+# Print the total count of all objects
+print(f"All objects: {storage.count()}")
 
-first_state_id = list(storage.all(State).values())[0].id
-print("First state: {}".format(storage.get(State, first_state_id)))
+# Print the count of State objects
+print(f"State objects: {storage.count(State)}")
+
+# Retrieve the ID of the first State object
+states = storage.all(State)
+if states:
+    first_state_id = list(states.values())[0].id
+    # Retrieve and print the first State object using its ID
+    print(f"First state: {storage.get(State, first_state_id)}")
+else:
+    print("No State objects found.")
