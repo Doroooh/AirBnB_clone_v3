@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-""" console """
+""" The Airbnb console Project """
 
 import cmd
 from datetime import datetime
@@ -12,57 +12,62 @@ from models.review import Review
 from models.state import State
 from models.user import User
 import shlex  # for splitting the line along spaces except in double quotes
+import logging
 
-classes = {"Amenity": Amenity, "BaseModel": BaseModel, "City": City,
-           "Place": Place, "Review": Review, "State": State, "User": User}
+# Initialize logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Dictionary of available classes
+entity_classes = {
+    "Amenity": Amenity, "BaseModel": BaseModel, "City": City,
+    "Place": Place, "Review": Review, "State": State, "User": User
+}
 
-class HBNBCommand(cmd.Cmd):
-    """ HBNH console """
-    prompt = '(hbnb) '
+class AirbnbCommand(cmd.Cmd):
+    """ The Airbnb Console """
+    prompt = '(HBNB) '
 
-    def do_EOF(self, arg):
-        """Exits console"""
+    def do_exit(self, arg):
+        """ Exit the console """
         return True
 
     def emptyline(self):
-        """ overwriting the emptyline method """
+        """ Override the emptyline method to do nothing """
         return False
 
     def do_quit(self, arg):
-        """Quit command to exit the program"""
+        """ Exit the console """
         return True
 
-    def _key_value_parser(self, args):
-        """creates a dictionary from a list of strings"""
-        new_dict = {}
-        for arg in args:
+    def parse_key_value(self, arguments):
+        """ Parse the key-value pairs from the argument list """
+        parsed_dict = {}
+        for arg in arguments:
             if "=" in arg:
-                kvp = arg.split('=', 1)
-                key = kvp[0]
-                value = kvp[1]
-                if value[0] == value[-1] == '"':
+                key, value = arg.split('=', 1)
+                if value.startswith('"') and value.endswith('"'):
                     value = shlex.split(value)[0].replace('_', ' ')
                 else:
                     try:
                         value = int(value)
-                    except:
+                    except ValueError:
                         try:
                             value = float(value)
-                        except:
+                        except ValueError:
                             continue
-                new_dict[key] = value
-        return new_dict
+                parsed_dict[key] = value
+        logging.debug(f"Parsed dictionary: {parsed_dict}")
+        return parsed_dict
 
     def do_create(self, arg):
-        """Creates a new instance of a class"""
+        """ Creates a new instance of a class """
         args = arg.split()
-        if len(args) == 0:
+        if not args:
             print("** class name missing **")
             return False
-        if args[0] in classes:
-            new_dict = self._key_value_parser(args[1:])
-            instance = classes[args[0]](**new_dict)
+        if args[0] in entity_classes:
+            new_attributes = self.parse_key_value(args[1:])
+            instance = entity_classes[args[0]](**new_attributes)
         else:
             print("** class doesn't exist **")
             return False
@@ -70,16 +75,16 @@ class HBNBCommand(cmd.Cmd):
         instance.save()
 
     def do_show(self, arg):
-        """Prints an instance as a string based on the class and id"""
+        """ Prints an instance based on the class and id """
         args = shlex.split(arg)
-        if len(args) == 0:
+        if not args:
             print("** class name missing **")
             return False
-        if args[0] in classes:
+        if args[0] in entity_classes:
             if len(args) > 1:
-                key = args[0] + "." + args[1]
-                if key in models.storage.all():
-                    print(models.storage.all()[key])
+                instance_key = f"{args[0]}.{args[1]}"
+                if instance_key in models.storage.all():
+                    print(models.storage.all()[instance_key])
                 else:
                     print("** no instance found **")
             else:
@@ -88,15 +93,15 @@ class HBNBCommand(cmd.Cmd):
             print("** class doesn't exist **")
 
     def do_destroy(self, arg):
-        """Deletes an instance based on the class and id"""
+        """ Deletes an instance based on the class and id """
         args = shlex.split(arg)
-        if len(args) == 0:
+        if not args:
             print("** class name missing **")
-        elif args[0] in classes:
+        elif args[0] in entity_classes:
             if len(args) > 1:
-                key = args[0] + "." + args[1]
-                if key in models.storage.all():
-                    models.storage.all().pop(key)
+                instance_key = f"{args[0]}.{args[1]}"
+                if instance_key in models.storage.all():
+                    del models.storage.all()[instance_key]
                     models.storage.save()
                 else:
                     print("** no instance found **")
@@ -106,49 +111,48 @@ class HBNBCommand(cmd.Cmd):
             print("** class doesn't exist **")
 
     def do_all(self, arg):
-        """Prints string representations of instances"""
+        """ Prints all string representations of instances """
         args = shlex.split(arg)
-        obj_list = []
-        if len(args) == 0:
-            obj_dict = models.storage.all()
-        elif args[0] in classes:
-            obj_dict = models.storage.all(classes[args[0]])
+        instance_list = []
+        if not args:
+            all_instances = models.storage.all()
+        elif args[0] in entity_classes:
+            all_instances = models.storage.all(entity_classes[args[0]])
         else:
             print("** class doesn't exist **")
             return False
-        for key in obj_dict:
-            obj_list.append(str(obj_dict[key]))
+        for key in all_instances:
+            instance_list.append(str(all_instances[key]))
         print("[", end="")
-        print(", ".join(obj_list), end="")
+        print(", ".join(instance_list), end="")
         print("]")
 
     def do_update(self, arg):
-        """Update an instance based on the class name, id, attribute & value"""
+        """ Update an instance based on the class name, id, attribute & value """
         args = shlex.split(arg)
-        integers = ["number_rooms", "number_bathrooms", "max_guest",
-                    "price_by_night"]
-        floats = ["latitude", "longitude"]
-        if len(args) == 0:
+        integer_attributes = ["number_rooms", "number_bathrooms", "max_guest", "price_by_night"]
+        float_attributes = ["latitude", "longitude"]
+        if not args:
             print("** class name missing **")
-        elif args[0] in classes:
+        elif args[0] in entity_classes:
             if len(args) > 1:
-                k = args[0] + "." + args[1]
-                if k in models.storage.all():
+                instance_key = f"{args[0]}.{args[1]}"
+                if instance_key in models.storage.all():
                     if len(args) > 2:
                         if len(args) > 3:
                             if args[0] == "Place":
-                                if args[2] in integers:
+                                if args[2] in integer_attributes:
                                     try:
                                         args[3] = int(args[3])
-                                    except:
+                                    except ValueError:
                                         args[3] = 0
-                                elif args[2] in floats:
+                                elif args[2] in float_attributes:
                                     try:
                                         args[3] = float(args[3])
-                                    except:
+                                    except ValueError:
                                         args[3] = 0.0
-                            setattr(models.storage.all()[k], args[2], args[3])
-                            models.storage.all()[k].save()
+                            setattr(models.storage.all()[instance_key], args[2], args[3])
+                            models.storage.all()[instance_key].save()
                         else:
                             print("** value missing **")
                     else:
